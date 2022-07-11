@@ -4,10 +4,9 @@ from typing import List
 import uuid
 import cv2
 import numpy as np
-from multiprocessing import Process, Event
-from multiprocessing import Queue, Array
+from multiprocessing import Process, Queue, Event
 import uvicorn
-from fastapi import FastAPI, BackgroundTasks
+from fastapi import FastAPI
 
 from capture import videoStream
 
@@ -61,34 +60,13 @@ def data_consumer(dataQueue: Queue, is_stop):
             cv2.imshow("show", np.hstack(batch_frames))
             cv2.waitKey(1)
 
-def start_PP():
-    global frame_capture, frame_display
-    frame_display.start()
-    frame_capture.start()
 
-def stop_PP():
-    global frame_capture, frame_display
-    global is_stop, stop_display
-
-    is_stop.set()
-    frame_capture.join()
-    stop_display.set()
-    frame_display.join()
-
-
-@app.get("/check_process")
+@app.get("/test_connect")
 async def test_check():
-    global frame_capture, frame_display
-    
-    ret_data = {
-        "capture": frame_capture.pid,
-        "display": frame_display.pid
-    }
-
-    return ret_data
+    return 200
 
 @app.get("/stop_process")
-async def test_stop(bg_tasks: BackgroundTasks):
+async def test_stop():
     global frame_capture, frame_display
     global is_stop, stop_display
 
@@ -96,26 +74,22 @@ async def test_stop(bg_tasks: BackgroundTasks):
         print("[API] processes already stop")
     else:
         print("[API] stop processes")
-        bg_tasks.add_task(stop_PP)
-        # is_stop.set()
-        # print("[API] is_stop=", is_stop.is_set())
-        # frame_capture.join()
-        # stop_display.set()
-        # print("[API] stop_display=", stop_display.is_set())
-        # frame_display.join()
+        is_stop.set()
+        print("[API] is_stop=", is_stop.is_set())
+        frame_capture.join()
+        stop_display.set()
+        print("[API] stop_display=", stop_display.is_set())
+        frame_display.join()
 
     return 200
 
 @app.post("/start_process")
-async def test_start(datas: List[str], bg_tasks: BackgroundTasks):
+async def test_start(datas: List[str]):
     print(datas)
     global frame_capture, frame_display
     global is_stop, stop_display
     global frameQueue
     
-    # if not is_stop.is_set():
-    #     print("[API] processes already running")
-    # else:
     print("[API] start processes")
     is_stop.clear()
     stop_display.clear()
@@ -126,36 +100,19 @@ async def test_start(datas: List[str], bg_tasks: BackgroundTasks):
     frame_display.daemon = True
 
     print("start process")
-    bg_tasks.add_task(start_PP)
-    # frame_display.start()
-    # frame_capture.start()
+    frame_display.start()
+    frame_capture.start()
     
     
     ret_data = {
         "capture": frame_capture.pid,
         "display": frame_display.pid
     }
+    print(ret_data)
 
     return ret_data
 
-@app.post("/test_process")
-async def test(datas: List[str]):
-    print(datas)
-    return 200
-
 if __name__ == "__main__":
-    is_stop = Event()
-    stop_display = Event()
-    frameQueue = Queue()
-
-    video_list = [
-        "rtsp://root:80661707@192.168.33.178/axis-media/media.amp",
-        "rtsp://root:80661707@192.168.33.169/axis-media/media.amp"
-    ]
-    
-    # print(video_list[0].decode("utf-8") )
-    frame_capture = None
-    frame_display = None
     
     # frame_capture = Process(target=data_producer, args=(video_list, frameQueue, is_stop,))
     # frame_capture.daemon = True
