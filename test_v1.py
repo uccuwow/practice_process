@@ -1,5 +1,10 @@
 # -*- coding: utf8 -*-
 
+"""
+Create a process to capture stream's frame and put into Queue
+main function will get frames from Queue then show images
+"""
+
 import time
 from typing import List
 import uuid
