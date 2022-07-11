@@ -1,5 +1,14 @@
 # -*- coding: utf8 -*-
 
+"""
+Create a process called P1 to capture stream's frame and put into Queue
+Create a process called P2 to get frames from Queue then show images
+
+Use FastAPI to controll P1 & P2
+"""
+
+
+import time
 from typing import List
 import uuid
 import cv2
@@ -42,6 +51,7 @@ def data_producer(videoList: List[str], dataQueue: Queue, is_stop):
         # if is_stop.is_set():
         #     print("break out")
         #     break
+        time.sleep(0.001)
         batch_frames = []
         for video in batch_videos:
             ret, frame = video.get_frame()
@@ -68,42 +78,41 @@ def data_consumer(dataQueue: Queue, is_stop):
 
 @app.on_event("shutdown")
 def shutdown_event():
-
+    global frameQueue
     global is_stop, stop_display
     global frame_capture, frame_display
-    is_stop.set()
-    frame_capture.join()
-    stop_display.set()
+    
+    print("queue {}".format(frameQueue.qsize()))
     frame_display.join()
+    frame_capture.join()
     
 
 
 @app.get("/test_connect")
 async def test_check():
-    global frame_capture, frame_display
-    global is_stop, stop_display
-    print(frame_capture.is_alive())
-    
+    global frameQueue
+    print("queue {}".format(frameQueue.qsize()))
+
     return 200
 
 @app.get("/stop_process")
 async def test_stop():
-    global frame_capture, frame_display
+    global frameQueue
     global is_stop, stop_display
+    global frame_capture, frame_display
 
     print(frame_capture.is_alive())
-
-    if is_stop.is_set():
-        print("[API] processes already stop")
-    else:
-        is_stop.set()
-        frame_capture.join()
-        print("[API] stop capture")
-
-        stop_display.set()
-        frame_display.join()
-        print("[API] stop display")
-
+    
+    is_stop.set()
+    # print("[API] stop capture")
+    stop_display.set()
+    # print("[API] stop display")
+    print("cap {}".format(frame_capture.is_alive()))
+    print("show {}".format(frame_display.is_alive()))
+    
+    frame_display.join()
+    frame_capture.join()
+    
     return 200
 
 @app.post("/start_process")
@@ -136,7 +145,6 @@ async def test_start(datas: List[str]):
     return ret_data
 
 if __name__ == "__main__":
-    
     # frame_capture = Process(target=data_producer, args=(video_list, frameQueue, is_stop,))
     # frame_capture.daemon = True
     
