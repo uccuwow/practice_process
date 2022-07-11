@@ -25,6 +25,11 @@ video_list = [
 frame_capture = None
 frame_display = None
 
+# frame_capture = Process(target=data_producer, args=(datas, frameQueue, is_stop,))
+# frame_capture.daemon = True
+# frame_display = Process(target=data_consumer, args=(frameQueue, stop_display,))
+# frame_display.daemon = True
+
 def data_producer(videoList: List[str], dataQueue: Queue, is_stop):
     batch_videos = []
     for videoUrl in videoList:
@@ -61,8 +66,24 @@ def data_consumer(dataQueue: Queue, is_stop):
             cv2.waitKey(1)
 
 
+@app.on_event("shutdown")
+def shutdown_event():
+
+    global is_stop, stop_display
+    global frame_capture, frame_display
+    is_stop.set()
+    frame_capture.join()
+    stop_display.set()
+    frame_display.join()
+    
+
+
 @app.get("/test_connect")
 async def test_check():
+    global frame_capture, frame_display
+    global is_stop, stop_display
+    print(frame_capture.is_alive())
+    
     return 200
 
 @app.get("/stop_process")
@@ -70,16 +91,18 @@ async def test_stop():
     global frame_capture, frame_display
     global is_stop, stop_display
 
+    print(frame_capture.is_alive())
+
     if is_stop.is_set():
         print("[API] processes already stop")
     else:
-        print("[API] stop processes")
         is_stop.set()
-        print("[API] is_stop=", is_stop.is_set())
         frame_capture.join()
+        print("[API] stop capture")
+
         stop_display.set()
-        print("[API] stop_display=", stop_display.is_set())
         frame_display.join()
+        print("[API] stop display")
 
     return 200
 
